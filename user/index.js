@@ -233,7 +233,7 @@ class User {
     /**
      * Check if user exists
      *
-     * @param userId
+     * @param {string} userId
      * @returns {Promise<boolean>}
      */
     static async exists(userId) {
@@ -288,7 +288,7 @@ class User {
     }
 
     /**
-     * Retrieve a user from database
+     * Retrieve a user from database, in JSON format
      *
      * @param {string} userId
      * @returns {Promise<any>}
@@ -305,25 +305,9 @@ class User {
     }
 
     /**
-     * Retrieve all users from database.
-     * @returns {Promise<User[]>} all users
-     */
-    // static async getAllUsers() {
-    //     let users;
-    //     try {
-    //         users = await mongo.db.collection(userCollection)
-    //             .find({})
-    //             .toArray();
-    //     } catch (err) {
-    //         throw new Error("Failed getting all users");
-    //     }
-    //     return users.map((q) => (this.fromJson(q)));
-    // }
-
-    /**
      * Get 'sanitized' user in JSON format removing secret fields
      *
-     * @param userId
+     * @param {string} userId
      * @returns {Promise<any>}
      */
     static async sanitizedJson(userId) {

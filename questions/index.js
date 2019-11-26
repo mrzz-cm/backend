@@ -103,7 +103,7 @@ class Question {
     }
 
     /**
-     * Check if question exists
+     * Check if question exists in the database
      *
      * @param uuid
      * @returns {Promise<boolean>}
