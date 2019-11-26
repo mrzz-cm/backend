@@ -6,6 +6,8 @@ const userModule = require("../../../user");
 const ru = require("../../../utils/router");
 const config = require("../../../config");
 
+const rc = ru.responseCodes;
+
 const upload = multerModule.multer({
     limits: { fileSize:  config.fileSettings.maxFileSize },
     storage: multerModule.storageHandler
@@ -17,8 +19,6 @@ const qUploadHandler = upload.fields([
         maxCount: 2
     }
 ]);
-
-const rc = ru.responseCodes;
 
 async function matchQuestion(request, reply, fastify, question, seeker) {
     const um = userModule({ mongo: fastify.mongo });
@@ -81,10 +81,12 @@ async function matchQuestion(request, reply, fastify, question, seeker) {
     }
 
     // update question fields
+    /* eslint-disable require-atomic-updates */
     question.helperNotifiedTimestamp = Date.now();
     question.optimalHelper = match.userId;
     question.prevCheckedHelpers.push(match.userId);
     question.questionState = "Waiting";
+    /* eslint-enable require-atomic-updates */
 
     request.log.info("Updating question");
 
@@ -147,6 +149,31 @@ async function matchQuestion(request, reply, fastify, question, seeker) {
 
 function routes (fastify, opts, done) {
 
+    async function validateUser(fastify, userModule, request, userId, reply) {
+        let userExists;
+        try {
+            /* eslint-disable-next-line */
+            userExists = await userModule.User.exists(userId);
+        } catch (e) {
+            if (ru.errCheck(reply, rc.BAD_REQUEST, e)) {
+                return false;
+            }
+        }
+
+        if (!userExists) {
+            reply.status(rc.BAD_REQUEST);
+            reply.send({ msg: `Provided user ${userId} doesn't exist.` });
+            return false;
+        }
+
+        if (!auth.verifyUserToken(fastify, request, userId)) {
+            ru.errCheck(reply, rc.UNAUTHORIZED, "Invalid credentials.");
+            return false;
+        }
+
+        return true;
+    }
+
     /* POST Requests */
 
     /**
@@ -181,35 +208,20 @@ function routes (fastify, opts, done) {
 
             const imagePaths = images.map((i) => i.path);
 
-            let userExists;
-            try {
-                /* eslint-disable-next-line */
-                userExists = await um.User.exists(request.body.userId);
-            } catch (e) {
-                if (ru.errCheck(reply, rc.BAD_REQUEST, e)) {return;}
-            }
-
-            if (!userExists) {
-                reply.status(rc.BAD_REQUEST);
-                reply.send("Provided user doesn't exist.");
-                return;
-            }
-
-            if (!auth.verifyUserToken(fastify, request, request.body.userId)) {
-                ru.errCheck(reply, rc.UNAUTHORIZED, "Invalid credentials.");
+            if (!await validateUser(fastify, um, request, body.userId, reply)) {
                 return;
             }
 
             let uJson;
             try {
-                uJson = await um.User.retrieve(request.body.userId);
+                uJson = await um.User.retrieve(body.userId);
             } catch (e) {
                 if (ru.errCheck(reply, rc.BAD_REQUEST, e)) {return;}
             }
 
             if (!uJson) {
                 reply.status(rc.INTERNAL_SERVER_ERROR);
-                reply.send(`No user ${request.body.userId} found`);
+                reply.send(`No user ${body.userId} found`);
                 return;
             }
 
@@ -295,33 +307,18 @@ function routes (fastify, opts, done) {
     });
 
     /**
-     * POST - delete a pending question as a seeker
+     * DELETE - delete a pending question as a seeker
      */
     fastify.route({
-        method: "POST",
-        url: "/delete/:seekerId",
+        method: "DELETE",
+        url: "/:seekerId",
         preValidation: [ fastify.authenticate ],
         async handler (request, reply) {
             const um = userModule({ mongo: fastify.mongo });
             const qm = questionsModule({ mongo: fastify.mongo });
             const seekerId = request.params.seekerId;
 
-            let userExists;
-            try {
-                /* eslint-disable-next-line */
-                userExists = await um.User.exists(seekerId);
-            } catch (e) {
-                if (ru.errCheck(reply, rc.BAD_REQUEST, e)) {return;}
-            }
-
-            if (!userExists) {
-                reply.status(rc.BAD_REQUEST);
-                reply.send("Provided user doesn't exist.");
-                return;
-            }
-
-            if (!auth.verifyUserToken(fastify, request, seekerId)) {
-                ru.errCheck(reply, rc.UNAUTHORIZED, "Invalid credentials.");
+            if (!await validateUser(fastify, um, request, seekerId, reply)) {
                 return;
             }
 
@@ -460,22 +457,7 @@ function routes (fastify, opts, done) {
             const questionId = request.body.questionId;
 
             // check user exists and provided valid credentials
-            let userExists;
-            try {
-                /* eslint-disable-next-line */
-                userExists = await um.User.exists(request.body.userId);
-            } catch (e) {
-                if (ru.errCheck(reply, rc.BAD_REQUEST, e)) {return;}
-            }
-
-            if (!userExists) {
-                reply.status(rc.BAD_REQUEST);
-                reply.send("Provided user doesn't exist.");
-                return;
-            }
-
-            if (!auth.verifyUserToken(fastify, request, request.body.userId)) {
-                ru.errCheck(reply, rc.UNAUTHORIZED, "Invalid credentials.");
+            if (!await validateUser(fastify, um, request, userId, reply)) {
                 return;
             }
 
@@ -590,24 +572,8 @@ function routes (fastify, opts, done) {
 
             const userId = request.body.userId;
             const questionId = request.body.questionId;
-            
-            // check provided user exists and provided valid credentials
-            let userExists;
-            try {
-                /* eslint-disable-next-line */
-                userExists = await um.User.exists(userId);
-            } catch (e) {
-                if (ru.errCheck(reply, rc.BAD_REQUEST, e)) {return;}
-            }
 
-            if (!userExists) {
-                reply.status(rc.BAD_REQUEST);
-                reply.send("Provided user doesn't exist.");
-                return;
-            }
-
-            if (!auth.verifyUserToken(fastify, request, request.body.userId)) {
-                ru.errCheck(reply, rc.UNAUTHORIZED, "Invalid credentials.");
+            if (!await validateUser(fastify, um, request, userId, reply)) {
                 return;
             }
 
@@ -748,22 +714,7 @@ function routes (fastify, opts, done) {
                 return;
             }
 
-            let userExists;
-            try {
-                /* eslint-disable-next-line */
-                userExists = await um.User.exists(seekerId);
-            } catch (e) {
-                if (ru.errCheck(reply, rc.BAD_REQUEST, e)) {return;}
-            }
-
-            if (!userExists) {
-                reply.status(rc.BAD_REQUEST);
-                reply.send("Provided user doesn't exist.");
-                return;
-            }
-
-            if (!auth.verifyUserToken(fastify, request, seekerId)) {
-                ru.errCheck(reply, rc.UNAUTHORIZED, "Invalid credentials.");
+            if (!await validateUser(fastify, um, request, seekerId, reply)) {
                 return;
             }
 
@@ -778,9 +729,10 @@ function routes (fastify, opts, done) {
 
             if (seeker.currentQuestion == null) {
                 reply.status(rc.BAD_REQUEST);
-                reply.send(
-                    `Seeker '${seeker.userId} doesn't` +
-                    " have an open question.");
+                reply.send({
+                    msg: `Seeker '${seeker.userId} doesn't` +
+                        " have an open question."
+                });
                 return;
             }
 
@@ -837,8 +789,7 @@ function routes (fastify, opts, done) {
             }
 
             reply.status(rc.OK);
-            reply.send(`Rated user ${helper.userId}`);
-
+            reply.send({ msg: `Rated user ${helper.userId}` });
         }
     });
 

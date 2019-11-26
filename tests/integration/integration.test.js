@@ -53,7 +53,6 @@ describe("Account creation test", () => {
     });
 });
 
-
 describe("Account duplicate creation test", () => {
     const testUser = "testuser0@example.com";
 
@@ -263,7 +262,6 @@ describe("Getting question data", () => {
 
 describe("Posting new question test", () => {
 
-    let question;
     const testUser = "testuser1@example.com";
     const testUser2 = "testuser2@example.com";
 
@@ -299,7 +297,6 @@ describe("Posting new question test", () => {
         um.User.retrieve(testUser)
             .then((user) => qm.Question.retrieve(user.currentQuestion))
             .then((q) => {
-                question = q;
                 expect(q).toBeTruthy();
                 expect(q.uuid).toBeTruthy();
                 expect(q.seeker).toBe(testUser);
@@ -580,6 +577,10 @@ describe("Rating a helper test", () => {
         const seekerUser = await um.User.retrieve(testSeeker);
 
         // check the question is resolved
+        expect(JSON.parse(rateResponse.body)).toEqual({
+            msg: `Rated user ${helperUser.userId}`
+        });
+
         expect(rateResponse.statusCode).toBe(rc.OK);
         expect(helperUser.points).toBe(rating);
 
@@ -639,8 +640,8 @@ describe("Deleting a question test", () => {
 
         // step two: delete the question
         const response = await fastify.inject({
-            method: "POST",
-            url: "/questions/delete/" + testSeeker
+            method: "DELETE",
+            url: `/questions/${testSeeker}`
         });
 
         expect(response.statusCode).toBe(rc.OK);
