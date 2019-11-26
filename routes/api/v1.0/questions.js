@@ -307,11 +307,11 @@ function routes (fastify, opts, done) {
     });
 
     /**
-     * POST - delete a pending question as a seeker
+     * DELETE - delete a pending question as a seeker
      */
     fastify.route({
-        method: "POST",
-        url: "/delete/:seekerId",
+        method: "DELETE",
+        url: "/:seekerId",
         preValidation: [ fastify.authenticate ],
         async handler (request, reply) {
             const um = userModule({ mongo: fastify.mongo });

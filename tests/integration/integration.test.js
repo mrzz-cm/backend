@@ -640,8 +640,8 @@ describe("Deleting a question test", () => {
 
         // step two: delete the question
         const response = await fastify.inject({
-            method: "POST",
-            url: "/questions/delete/" + testSeeker
+            method: "DELETE",
+            url: `/questions/${testSeeker}`
         });
 
         expect(response.statusCode).toBe(rc.OK);
