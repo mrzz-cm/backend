@@ -358,6 +358,7 @@ function routes (fastify, opts, done) {
             if ((qState !== "Waiting") && (qState !== "Unmatched")) {
                 reply.status(rc.BAD_REQUEST);
                 reply.send("Cannot close this question.");
+                return;
             }
 
             const helperWaiting = (question.questionState === "Waiting");
